@@ -1,6 +1,6 @@
 # My Cars
 
-Android app for keeping track of your own cars. Version 0.1 talks to a Google Sheet through a Google Apps Script web app. This first step only opens a home screen. The car list, forms, and icons come in the next steps.
+Android app for keeping track of your own cars. Version 0.1 talks to a Google Sheet through a Google Apps Script web app. The home screen lists your cars. Adding and editing a car comes in a later step.
 
 ## Install
 
@@ -21,7 +21,7 @@ cp .env.example .env
 - `EXPO_PUBLIC_API_URL` — the web app URL of your deployed Apps Script
 - `EXPO_PUBLIC_API_TOKEN` — the secret token that script expects
 
-The app does not call the sheet yet. You can leave the placeholders until the next step.
+The home screen reads the Cars sheet. Restart Expo after you change `.env`, because Expo only reads that file when it starts.
 
 ## Run
 

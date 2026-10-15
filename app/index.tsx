@@ -1,49 +1,154 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
+import { listCars } from '../src/api/sheets';
+import { CarCard } from '../src/components/CarCard';
 import { theme } from '../src/constants/theme';
+import type { Car } from '../src/types/car';
 
 /**
- * Home screen.
+ * Car list screen.
  *
- * WHAT: the first screen you see when the app opens.
- * WHY: this step only proves the app starts, navigation works, and the
- *      theme is applied. The real car list is added in the next step.
+ * WHAT: load every car from the Cars sheet and show one card each.
+ * WHY: this is the home screen. Pull down to ask the sheet for a fresh list.
+ *      Adding and editing a car comes in a later step.
  */
 export default function HomeScreen() {
-  return (
-    <View style={styles.screen}>
-      <View style={styles.card}>
-        <Text style={styles.title}>My Cars</Text>
-        <Text style={styles.body}>
-          The app is running. Your car list will appear on this screen.
-        </Text>
+  const [cars, setCars] = useState<Car[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Ask the sheet for the cars.
+   * "first" is the spinner you see when the screen opens.
+   * "refresh" is the spinner at the top when you pull down.
+   */
+  async function loadCars(kind: 'first' | 'refresh') {
+    if (kind === 'first') {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
+
+    try {
+      const nextCars = await listCars();
+      setCars(nextCars);
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not load cars.';
+      setError(message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
+    loadCars('first');
+  }, []);
+
+  const refreshControl = (
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={() => loadCars('refresh')}
+      tintColor={theme.colors.primary}
+      colors={[theme.colors.primary]}
+    />
+  );
+
+  if (loading && cars.length === 0) {
+    return (
+      <View style={[styles.fill, styles.centered]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles.message}>Loading cars…</Text>
       </View>
-    </View>
+    );
+  }
+
+  if (cars.length === 0) {
+    return (
+      // ScrollView so pull-to-refresh still works when there is nothing to list.
+      <ScrollView
+        style={styles.fill}
+        contentContainerStyle={styles.centered}
+        refreshControl={refreshControl}
+      >
+        <Text style={error ? styles.error : styles.message}>
+          {error ?? 'No cars yet.'}
+        </Text>
+        <Pressable style={styles.button} onPress={() => loadCars('first')}>
+          <Text style={styles.buttonText}>{error ? 'Try again' : 'Refresh'}</Text>
+        </Pressable>
+      </ScrollView>
+    );
+  }
+
+  return (
+    <FlatList
+      data={cars}
+      keyExtractor={(car, index) => (car.id === '' ? `car-${index}` : car.id)}
+      renderItem={({ item }) => <CarCard car={item} />}
+      refreshControl={refreshControl}
+      contentContainerStyle={styles.list}
+      // A failed refresh keeps the cards and shows the message above them.
+      ListHeaderComponent={
+        error ? <Text style={styles.errorBanner}>{error}</Text> : null
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
+  list: {
     padding: theme.spacing.screen,
-  },
-  card: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radius.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: theme.spacing.card,
     gap: theme.spacing.gap,
   },
-  title: {
-    color: theme.colors.text,
-    fontSize: theme.text.title,
-    fontWeight: '700',
+  fill: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
   },
-  body: {
+  centered: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.screen,
+    gap: theme.spacing.gap,
+    backgroundColor: theme.colors.background,
+  },
+  message: {
     color: theme.colors.textMuted,
     fontSize: theme.text.body,
-    lineHeight: 22,
+    textAlign: 'center',
+  },
+  error: {
+    color: theme.colors.danger,
+    fontSize: theme.text.body,
+    textAlign: 'center',
+  },
+  errorBanner: {
+    color: theme.colors.danger,
+    fontSize: theme.text.body,
+    marginBottom: theme.spacing.gap,
+  },
+  button: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  buttonText: {
+    color: theme.colors.onPrimary,
+    fontSize: theme.text.body,
+    fontWeight: '600',
   },
 });
