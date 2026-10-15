@@ -270,13 +270,61 @@ export async function listTodos(): Promise<Todo[]> {
   return rows.map(toTodo);
 }
 
-/** Create a to-do. The server fills in id and created_at. */
+/**
+ * To-dos for one car.
+ *
+ * WHAT: load the Todos sheet, then keep the rows whose car_id matches.
+ * WHY: the web app lists a whole sheet. It does not have a "one car" filter.
+ *      If this throws, the details screen shows the message.
+ */
+export async function listTodosForCar(carId: string): Promise<Todo[]> {
+  const todos = await listTodos();
+  return todos.filter((todo) => todo.car_id === carId);
+}
+
+/**
+ * Today's date as YYYY-MM-DD, using the phone's local day.
+ * done_at uses the same shape as the other dates in the sheet.
+ */
+function todayStamp(): string {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Create a to-do.
+ *
+ * WHAT: POST action "create". Do not send an id.
+ * WHY: the server fills in id and created_at.
+ *      The details screen sends car_id, title, done: false, and done_at: "".
+ */
 export async function createTodo(data: TodoFields): Promise<Todo> {
   return toTodo(await writeRow('Todos', 'create', { data }));
 }
 
+/**
+ * Change some fields on a to-do.
+ * The server merges `data` into the row with this id.
+ */
 export async function updateTodo(id: string, data: Partial<TodoFields>): Promise<Todo> {
   return toTodo(await writeRow('Todos', 'update', { id, data }));
+}
+
+/**
+ * Tick or untick a to-do.
+ *
+ * WHAT: set done, and set done_at to today or clear it.
+ * WHY: a ticked box should remember the day. Unticking clears that day.
+ *      This is an update, so the other columns stay as they are.
+ */
+export async function setTodoDone(id: string, done: boolean): Promise<Todo> {
+  return updateTodo(id, {
+    done,
+    done_at: done ? todayStamp() : '',
+  });
 }
 
 export async function deleteTodo(id: string): Promise<Todo> {

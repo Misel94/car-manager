@@ -12,7 +12,7 @@ import type { Car, CarFields } from '../../../src/types/car';
  *
  * WHAT: load this car, fill the same form as Add, then save with updateCar.
  * WHY: there is no "get one car" call. We load the list and keep the matching id.
- *      The details screen comes later, so the list opens this screen for now.
+ *      The details screen opens this form with the Edit button.
  */
 export default function EditCarScreen() {
   const router = useRouter();

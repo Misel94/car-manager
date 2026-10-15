@@ -21,7 +21,7 @@ import type { Car } from '../src/types/car';
  *
  * WHAT: load every car from the Cars sheet and show one card each.
  * WHY: this is the home screen. Pull down to refresh. Tap + to add a car.
- *      Tap a card to edit it. A separate details screen comes later.
+ *      Tap a card to open its details. Edit is a button on that screen.
  *      Coming back from Add or Edit focuses this screen, which reloads the list.
  */
 export default function HomeScreen() {
@@ -69,11 +69,11 @@ export default function HomeScreen() {
     router.push('/car/new');
   }
 
-  function openEdit(car: Car) {
+  function openDetails(car: Car) {
     if (car.id === '') {
       return;
     }
-    router.push({ pathname: '/car/[id]/edit', params: { id: car.id } });
+    router.push({ pathname: '/car/[id]', params: { id: car.id } });
   }
 
   const refreshControl = (
@@ -115,7 +115,7 @@ export default function HomeScreen() {
         data={cars}
         keyExtractor={(car, index) => (car.id === '' ? `car-${index}` : car.id)}
         renderItem={({ item }) => (
-          <Pressable onPress={() => openEdit(item)}>
+          <Pressable onPress={() => openDetails(item)}>
             <CarCard car={item} />
           </Pressable>
         )}
