@@ -21,7 +21,7 @@ cp .env.example .env
 - `EXPO_PUBLIC_API_URL` — the web app URL of your deployed Apps Script
 - `EXPO_PUBLIC_API_TOKEN` — the secret token that script expects
 
-The home screen reads the Cars sheet. Tap **+** to add a car, or tap a card to open it. Restart Expo after you change `.env`, because Expo only reads that file when it starts.
+The home screen reads the Cars sheet. Tap **+** to add a car, or tap a card to open it. From the details screen you can edit the car, delete a to-do, or delete the car. Restart Expo after you change `.env`, because Expo only reads that file when it starts.
 
 ## Run
 
