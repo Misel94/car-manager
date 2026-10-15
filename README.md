@@ -25,6 +25,8 @@ The app does not call the sheet yet. You can leave the placeholders until the ne
 
 ## Run
 
+This project uses Expo SDK 57. That is the newest stable SDK that Expo Go from the Play Store can open. SDK 58 is still in beta, so Expo Go rejects it.
+
 ```bash
 npx expo start
 ```
