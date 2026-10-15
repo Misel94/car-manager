@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -19,21 +20,24 @@ import type { Car } from '../src/types/car';
  * Car list screen.
  *
  * WHAT: load every car from the Cars sheet and show one card each.
- * WHY: this is the home screen. Pull down to ask the sheet for a fresh list.
- *      Adding and editing a car comes in a later step.
+ * WHY: this is the home screen. Pull down to refresh. Tap + to add a car.
+ *      Tap a card to edit it. A separate details screen comes later.
+ *      Coming back from Add or Edit focuses this screen, which reloads the list.
  */
 export default function HomeScreen() {
+  const router = useRouter();
   const [cars, setCars] = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const firstLoad = useRef(true);
 
   /**
    * Ask the sheet for the cars.
    * "first" is the spinner you see when the screen opens.
-   * "refresh" is the spinner at the top when you pull down.
+   * "refresh" is the spinner at the top when you pull down or come back from a save.
    */
-  async function loadCars(kind: 'first' | 'refresh') {
+  const loadCars = useCallback(async (kind: 'first' | 'refresh') => {
     if (kind === 'first') {
       setLoading(true);
     } else {
@@ -51,11 +55,26 @@ export default function HomeScreen() {
       setLoading(false);
       setRefreshing(false);
     }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      const kind = firstLoad.current ? 'first' : 'refresh';
+      firstLoad.current = false;
+      loadCars(kind);
+    }, [loadCars]),
+  );
+
+  function openNewCar() {
+    router.push('/car/new');
   }
 
-  useEffect(() => {
-    loadCars('first');
-  }, []);
+  function openEdit(car: Car) {
+    if (car.id === '') {
+      return;
+    }
+    router.push({ pathname: '/car/[id]/edit', params: { id: car.id } });
+  }
 
   const refreshControl = (
     <RefreshControl
@@ -66,17 +85,16 @@ export default function HomeScreen() {
     />
   );
 
+  let body;
   if (loading && cars.length === 0) {
-    return (
+    body = (
       <View style={[styles.fill, styles.centered]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.message}>Loading cars…</Text>
       </View>
     );
-  }
-
-  if (cars.length === 0) {
-    return (
+  } else if (cars.length === 0) {
+    body = (
       // ScrollView so pull-to-refresh still works when there is nothing to list.
       <ScrollView
         style={styles.fill}
@@ -84,27 +102,51 @@ export default function HomeScreen() {
         refreshControl={refreshControl}
       >
         <Text style={error ? styles.error : styles.message}>
-          {error ?? 'No cars yet.'}
+          {error ?? 'No cars yet. Tap + to add one.'}
         </Text>
         <Pressable style={styles.button} onPress={() => loadCars('first')}>
           <Text style={styles.buttonText}>{error ? 'Try again' : 'Refresh'}</Text>
         </Pressable>
       </ScrollView>
     );
+  } else {
+    body = (
+      <FlatList
+        data={cars}
+        keyExtractor={(car, index) => (car.id === '' ? `car-${index}` : car.id)}
+        renderItem={({ item }) => (
+          <Pressable onPress={() => openEdit(item)}>
+            <CarCard car={item} />
+          </Pressable>
+        )}
+        refreshControl={refreshControl}
+        contentContainerStyle={styles.list}
+        // A failed refresh keeps the cards and shows the message above them.
+        ListHeaderComponent={error ? <Text style={styles.errorBanner}>{error}</Text> : null}
+      />
+    );
   }
 
   return (
-    <FlatList
-      data={cars}
-      keyExtractor={(car, index) => (car.id === '' ? `car-${index}` : car.id)}
-      renderItem={({ item }) => <CarCard car={item} />}
-      refreshControl={refreshControl}
-      contentContainerStyle={styles.list}
-      // A failed refresh keeps the cards and shows the message above them.
-      ListHeaderComponent={
-        error ? <Text style={styles.errorBanner}>{error}</Text> : null
-      }
-    />
+    <>
+      {/* The + stays in the top bar on every state of this screen. */}
+      <Stack.Screen
+        options={{
+          title: 'My Cars',
+          headerRight: () => <AddButton onPress={openNewCar} />,
+        }}
+      />
+      {body}
+    </>
+  );
+}
+
+/** The + in the top bar. It opens the empty Add form. */
+function AddButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} hitSlop={8} style={styles.addButton}>
+      <Text style={styles.addButtonText}>+</Text>
+    </Pressable>
   );
 }
 
@@ -150,5 +192,14 @@ const styles = StyleSheet.create({
     color: theme.colors.onPrimary,
     fontSize: theme.text.body,
     fontWeight: '600',
+  },
+  addButton: {
+    paddingHorizontal: 12,
+  },
+  addButtonText: {
+    color: theme.colors.primary,
+    fontSize: 32,
+    fontWeight: '600',
+    lineHeight: 36,
   },
 });

@@ -239,12 +239,24 @@ export async function listCars(): Promise<Car[]> {
   return rows.map(toCar);
 }
 
-/** Create a car. The server fills in id, created_at, and updated_at. */
+/**
+ * Create a car.
+ *
+ * WHAT: POST action "create" with the form fields. Do not send an id.
+ * WHY: the server creates id, created_at, and updated_at.
+ *      If this throws, the Add screen shows the message and stays open.
+ */
 export async function createCar(data: CarFields): Promise<Car> {
   return toCar(await writeRow('Cars', 'create', { data }));
 }
 
-/** Change some fields on the car with this id. Other fields stay as they are. */
+/**
+ * Update a car.
+ *
+ * WHAT: POST action "update" with the id and the fields to change.
+ * WHY: the server copies those fields onto the existing row and refreshes updated_at.
+ *      If this throws, the Edit screen shows the message and stays open.
+ */
 export async function updateCar(id: string, data: Partial<CarFields>): Promise<Car> {
   return toCar(await writeRow('Cars', 'update', { id, data }));
 }
