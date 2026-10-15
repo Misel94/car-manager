@@ -2,6 +2,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-rou
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   RefreshControl,
@@ -12,7 +13,7 @@ import {
   View,
 } from 'react-native';
 
-import { createTodo, listCars, listTodosForCar, setTodoDone } from '../../../src/api/sheets';
+import { createTodo, deleteCar, deleteTodo, listCars, listTodosForCar, setTodoDone } from '../../../src/api/sheets';
 import { TodoItem } from '../../../src/components/TodoItem';
 import { getCarIcon } from '../../../src/constants/carIcons';
 import { theme } from '../../../src/constants/theme';
@@ -22,7 +23,7 @@ import type { Todo } from '../../../src/types/todo';
 /**
  * Car details screen.
  *
- * WHAT: the main facts for one car, an Edit button, and that car's to-dos.
+ * WHAT: the main facts for one car, Edit, Delete, and that car's to-dos.
  * WHY: the list stays short. Tap a card to land here. Edit still uses the shared form.
  *      Pull down to reload the car and its to-dos from the sheet.
  */
@@ -141,10 +142,102 @@ export default function CarDetailsScreen() {
   }
 
   function openEdit() {
-    if (!car || car.id === '') {
+    if (busy || !car || car.id === '') {
       return;
     }
     router.push({ pathname: '/car/[id]/edit', params: { id: car.id } });
+  }
+
+  function askDeleteTodo(todo: Todo) {
+    if (busy) {
+      return;
+    }
+    Alert.alert('Delete this to-do?', `"${todo.title}" will be removed from the sheet.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => removeTodo(todo) },
+    ]);
+  }
+
+  async function removeTodo(todo: Todo) {
+    if (busy || !id) {
+      return;
+    }
+    if (todo.id === '') {
+      setTodoError('This to-do has no id, so it cannot be deleted.');
+      return;
+    }
+
+    setBusy(true);
+    setTodoError(null);
+    try {
+      await deleteTodo(todo.id);
+      setTodos(openFirst(await listTodosForCar(id)));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not delete this to-do.';
+      setTodoError(message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function askDeleteCar() {
+    if (busy || !car) {
+      return;
+    }
+    const name = car.name.trim() === '' ? 'this car' : car.name.trim();
+    Alert.alert(
+      `Delete ${name}?`,
+      'This also deletes its to-dos. You cannot undo this.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete car', style: 'destructive', onPress: () => removeCar() },
+      ],
+    );
+  }
+
+  /**
+   * Delete the to-dos one by one, then the car.
+   * If a to-do delete fails, the car stays. If the car delete fails, we stay on this screen.
+   */
+  async function removeCar() {
+    if (busy || !id) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      const currentTodos = await listTodosForCar(id);
+      for (const todo of currentTodos) {
+        if (todo.id === '') {
+          throw new Error('One to-do has no id, so the car was not deleted.');
+        }
+        await deleteTodo(todo.id);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not delete the to-dos.';
+      setError(`The car was not deleted. ${message}`);
+      try {
+        setTodos(openFirst(await listTodosForCar(id)));
+      } catch {
+        // The first error is the one we show. A second failure just leaves the list as it is.
+      }
+      setBusy(false);
+      return;
+    }
+
+    try {
+      await deleteCar(id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not delete this car.';
+      setError(`The to-dos were deleted, but the car is still in the sheet. ${message}`);
+      setTodos([]);
+      setBusy(false);
+      return;
+    }
+
+    setBusy(false);
+    router.back();
   }
 
   const refreshControl = (
@@ -200,7 +293,7 @@ export default function CarDetailsScreen() {
               {brandAndModel !== '' ? <Text style={styles.muted}>{brandAndModel}</Text> : null}
             </View>
           </View>
-          <Pressable style={styles.edit} onPress={openEdit}>
+          <Pressable style={[styles.edit, busy && styles.disabled]} onPress={openEdit} disabled={busy}>
             <Text style={styles.editText}>Edit</Text>
           </Pressable>
         </View>
@@ -227,7 +320,7 @@ export default function CarDetailsScreen() {
             </Pressable>
           </View>
 
-          {busy ? <Text style={styles.muted}>Saving…</Text> : null}
+          {busy ? <Text style={styles.muted}>Please wait…</Text> : null}
           {todoError ? <Text style={styles.error}>{todoError}</Text> : null}
 
           {todos.length === 0 && !todoError ? (
@@ -239,10 +332,20 @@ export default function CarDetailsScreen() {
                 todo={todo}
                 disabled={busy}
                 onToggle={toggleTodo}
+                onDelete={askDeleteTodo}
               />
             ))
           )}
         </View>
+
+        {/* Kept apart from Edit so a delete is a deliberate second step. */}
+        <Pressable
+          style={[styles.deleteCar, busy && styles.disabled]}
+          onPress={askDeleteCar}
+          disabled={busy}
+        >
+          <Text style={styles.deleteCarText}>Delete car</Text>
+        </Pressable>
       </ScrollView>
     </>
   );
@@ -445,5 +548,19 @@ const styles = StyleSheet.create({
   error: {
     color: theme.colors.danger,
     fontSize: theme.text.body,
+  },
+  deleteCar: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.danger,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: theme.colors.card,
+  },
+  deleteCarText: {
+    color: theme.colors.danger,
+    fontSize: theme.text.body,
+    fontWeight: '700',
   },
 });

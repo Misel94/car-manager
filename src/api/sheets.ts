@@ -261,6 +261,14 @@ export async function updateCar(id: string, data: Partial<CarFields>): Promise<C
   return toCar(await writeRow('Cars', 'update', { id, data }));
 }
 
+/**
+ * Delete one car row.
+ *
+ * WHAT: POST { token, sheet: "Cars", action: "delete", id }.
+ * WHY: this is the delete action the web app already accepts, next to create and update.
+ *      We do not send a data object. The token still comes from .env.
+ *      A network failure or { error } becomes an English message for the screen.
+ */
 export async function deleteCar(id: string): Promise<Car> {
   return toCar(await writeRow('Cars', 'delete', { id }));
 }
@@ -327,6 +335,13 @@ export async function setTodoDone(id: string, done: boolean): Promise<Todo> {
   });
 }
 
+/**
+ * Delete one to-do row.
+ *
+ * WHAT: POST { token, sheet: "Todos", action: "delete", id }.
+ * WHY: same delete action as cars, aimed at the Todos sheet.
+ *      The token still comes from .env. Failures are shown as English text.
+ */
 export async function deleteTodo(id: string): Promise<Todo> {
   return toTodo(await writeRow('Todos', 'delete', { id }));
 }

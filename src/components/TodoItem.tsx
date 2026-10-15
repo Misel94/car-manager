@@ -8,31 +8,35 @@ type TodoItemProps = {
   /** True while a save is running, so a second tap does not send twice. */
   disabled: boolean;
   onToggle: (todo: Todo) => void;
+  /** The details screen asks "Are you sure?" before it calls deleteTodo. */
+  onDelete: (todo: Todo) => void;
 };
 
 /**
  * One to-do row.
  *
- * WHAT: a checkbox, the title, and the day it was finished when it is done.
- * WHY: tapping the row ticks or unticks it. The details screen does the save.
+ * WHAT: a checkbox, the title, the finished day, and a small Delete button.
+ * WHY: tapping the title ticks or unticks it. Delete is separate so a tick is not a delete.
+ *      The details screen does the save.
  */
-export function TodoItem({ todo, disabled, onToggle }: TodoItemProps) {
+export function TodoItem({ todo, disabled, onToggle, onDelete }: TodoItemProps) {
   return (
-    <Pressable
-      style={[styles.row, disabled && styles.disabled]}
-      onPress={() => onToggle(todo)}
-      disabled={disabled}
-    >
-      <View style={[styles.box, todo.done && styles.boxDone]}>
-        {todo.done ? <Text style={styles.check}>✓</Text> : null}
-      </View>
-      <View style={styles.text}>
-        <Text style={[styles.title, todo.done && styles.titleDone]}>{todo.title}</Text>
-        {todo.done && todo.done_at !== '' ? (
-          <Text style={styles.doneAt}>Done {todo.done_at}</Text>
-        ) : null}
-      </View>
-    </Pressable>
+    <View style={[styles.row, disabled && styles.disabled]}>
+      <Pressable style={styles.main} onPress={() => onToggle(todo)} disabled={disabled}>
+        <View style={[styles.box, todo.done && styles.boxDone]}>
+          {todo.done ? <Text style={styles.check}>✓</Text> : null}
+        </View>
+        <View style={styles.text}>
+          <Text style={[styles.title, todo.done && styles.titleDone]}>{todo.title}</Text>
+          {todo.done && todo.done_at !== '' ? (
+            <Text style={styles.doneAt}>Done {todo.done_at}</Text>
+          ) : null}
+        </View>
+      </Pressable>
+      <Pressable onPress={() => onDelete(todo)} disabled={disabled} hitSlop={8}>
+        <Text style={styles.delete}>Delete</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -64,6 +68,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  main: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.gap,
+  },
   text: {
     flex: 1,
     gap: 2,
@@ -79,5 +89,10 @@ const styles = StyleSheet.create({
   doneAt: {
     color: theme.colors.textMuted,
     fontSize: 14,
+  },
+  delete: {
+    color: theme.colors.danger,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
